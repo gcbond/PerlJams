@@ -1,0 +1,10 @@
+Written by Grant Bond
+This program will scan a given directory for music and extract the ID3 tags into an index.
+The index can then be modified and eventually written to a new path.
+The goal is to create a common structure for your music library
+The structure is Artist/Album/1Track.MP3
+
+The following packages are needed
+Image::ExifTool
+Lingua::EN::Numbers
+Both are available on CPAN.
