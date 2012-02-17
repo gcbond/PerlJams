@@ -4,8 +4,7 @@
 #The index can then be modified and eventually written to a new path.
 #The goal is to create a common structure for your music library
 #The structure is Artist/Album/1Track.MP3
-
-#TODO: Sanitize paths
+#The files will be moved from the old source to the new directory.
 
 use strict;
 use warnings;
@@ -42,7 +41,7 @@ sub id3 {
 	print "Retrieving ID3 tags.... this may take awhile!\n";
 	print "This tool indexes all your music files.  It knows the Artist, Album, Year, Track, Track #, Bitrate, and File Type.\n";
 	print "When searching the index simple enter a word or FLAC to get flac.  If you want to search a range of bit rates use the format \"> 160\" or \"< 128\"\n";
-	print "Once you decide to write it will create Artist/Album/0Title.mp3 tree for each entry\n";
+	print "Once you decide to write it will create Artist/Album/0Title.mp3 tree for each entry, moving the old files from the source.\n";
 	my $i = 1;
 	foreach (@list) {
 		print "25% done\n" if $total / $i == 4;
@@ -66,7 +65,7 @@ sub make_artists {
 		my $tra = $tags_ref->{$firstkey}->{"Track"};
 		my $pat = $firstkey;
 		my $bit = $tags_ref->{$firstkey}->{"AudioBitrate"};
-		$art = &sane($tags_ref->{$firstkey}->{"Artist"}) if !defined($art);
+		$art = &sane($tags_ref->{$firstkey}->{"Artist"}) if !defined($art); #Sometimes ID3 uses AlbumArtists or Artist
 		$art = &doors($art);
 		if(defined($art) && defined($alb) && defined($tit) && defined($fil)) {
 			$artists{$art} = &anon_hash() unless $artists{$art};
@@ -80,7 +79,6 @@ sub make_artists {
 						$tit = $test;
 						next;
 					}
-
 				}
 			}
 			$artists{$art}{$alb}{$tit} = &anon_hash() unless $artists{$art}{$alb}{$tit};
@@ -123,7 +121,6 @@ sub sane {
 	$text =~ s/&/and/g;
 	$text =~ s/_/ /g;
 	if($artists{$text}) {
-		#$text =~ s/([\w']+)/\u\L$1/g;
 		return &cap($text);
 	}
 	my $number = $text;
@@ -132,7 +129,6 @@ sub sane {
 		$number = num2en($number);
 		$text =~ s/\b\d\b/$number/g;
 	}
-	#$text =~ s/([\w']+)/\u\L$1/g;
 	return &cap($text);
 }
 #Captilize The First Letter
@@ -163,58 +159,62 @@ sub doors {
 }
 #Build will create the file structure and then move the files
 sub build {
-	my $base = shift;
+	my $base = &sanitize(shift, 1);
+	print "Moving files to $base\n";
+	print "Program will ask to overwrite in case of conflict\n";
 	for my $firstkey (keys %artists) {
-		make_path("$base/$firstkey");
+		my $level1 = &sanitize($firstkey);
+		make_path("$base/$level1");
 		for my $secondkey (keys %{$artist_ref->{$firstkey}} ) {
-			#Currently will break with "Through The Pain...";
-			make_path("$base/$firstkey/$secondkey");
+			my $level2 = &sanitize($secondkey);
+			make_path("$base/$level1/$level2");
 			for my $song (keys %{$artist_ref->{$firstkey}->{$secondkey}} ) {
+				my $level3 = &sanitize($song);
 				my $src = $artists{$firstkey}{$secondkey}{$song}{"path"};
 				my $filetype = $artists{$firstkey}{$secondkey}{$song}{"filetype"};
 				my $trackno = $artists{$firstkey}{$secondkey}{$song}{"track"};
 				my $filename;
 				if(defined($trackno)) {
-					$filename = $trackno . $song . ".$filetype";
+					$filename = $trackno . $level3 . ".$filetype";
 				}
 				else {
-					$filename = $song . ".$filetype";
+					$filename = $level3. ".$filetype";
 				}
-				move($src, "$base/$firstkey/$secondkey/$filename") or warn "*ERROR could not move file located at $src\n";
+				my $musicfile = "$base/$level1/$level2/$filename";
+				if(-e $musicfile) {
+					print "$musicfile already exists! Overwrite?[y/n by default]> ";
+					my $choice = <STDIN>; chomp($choice);
+					move($src, "$base/$level1/$level2/$filename") or warn "*ERROR could not move file located at $src\n" if $choice eq "y";
+				}
+				else {
+					move($src, "$base/$level1/$level2/$filename") or warn "*ERROR could not move file located at $src\n";
+				}
 			}
 		}
 	}
+	print "Done moving files!\n";
+	&postbuild();
+}
+sub sanitize {
+	my $text = shift;
+	if(shift) {
+		$text =~ s/[\<|\>|\.|\?|\||\*|\"]//g;
+	}
+	else {
+		$text =~ s/[\<|\>|\.|\?|\||\:|\*|\"|\\|\/]//g;
+	}
+	return $text;
 }
 ##If there is a left over key with no values it removes it.
 sub cleanartist {
 	for my $firstkey (keys %artists) {
 		for my $secondkey (keys %{$artist_ref->{$firstkey}} ) {
-			for my $thirdkey (keys %{$artist_ref->{$firstkey}->{$secondkey}} )
-			{
-				if(scalar(%{$artist_ref->{$firstkey}->{$secondkey}->{$thirdkey}} ) ) {
-				}
-				else {
-					delete $artist_ref->{$firstkey}->{$secondkey}->{$thirdkey} or warn "Could not remove indexes\n";
-					print "\n$thirdkey is empty\n";
-				}
+			for my $thirdkey (keys %{$artist_ref->{$firstkey}->{$secondkey}} ) {	
+				delete $artist_ref->{$firstkey}->{$secondkey}->{$thirdkey} or warn "Could not remove indexes\n" unless scalar(%{$artist_ref->{$firstkey}->{$secondkey}->{$thirdkey}} );
 			} ## end of $thirdkey
-			if(scalar(%{$artist_ref->{$firstkey}->{$secondkey}} ) ) {
-				#print scalar(%{$artist_ref->{$firstkey}->{$secondkey}->{$thirdkey}} );
-				#print "\n$thirdkey\n";
-			}
-			else {
-				delete $artist_ref->{$firstkey}->{$secondkey} or warn "Could not remove indexes\n";
-				print "\n$secondkey is empty\n";
-			}
+			delete $artist_ref->{$firstkey}->{$secondkey} or warn "Could not remove indexes\n" unless scalar(%{$artist_ref->{$firstkey}->{$secondkey}} );
 		} ##end of $secondkey
-		if(scalar(%{$artist_ref->{$firstkey}} ) ) {
-			#print scalar(%{$artist_ref->{$firstkey}->{$secondkey}->{$thirdkey}} );
-			#print "\n$thirdkey\n";
-		}
-		else {
-			delete $artist_ref->{$firstkey} or warn "Could not remove indexes\n";
-			print "\n$firstkey is empty\n";
-		}
+		delete $artist_ref->{$firstkey} or warn "Could not remove indexes\n" unless scalar(%{$artist_ref->{$firstkey}} );
 	} ##end of $firstkey
 }
 #Removes entries from index passed to it from &artistaction.
@@ -276,7 +276,6 @@ sub artistaction {
 			print grep(/$match/i, &print($location, 0, 0));
 		}
 	}
-	
 	if($action eq "r") {
 		my %path_of_smalls;
 		#Search for kbs range
@@ -287,7 +286,7 @@ sub artistaction {
 			for(my $i = 0; $i < scalar(@small); $i++) {
 				print $i . ".) $small[$i]\n";
 			}
-			print "Type in numbers seprated by a space to keep or press enter if selection is what you want.\n";
+			print "Type in numbers seprated by a space to keep or press enter if selection is what you want> ";
 			my $choice = <STDIN>; chomp($choice);
 			my @selection = split(/\s+/, $choice);
 			foreach (@selection) {
@@ -301,19 +300,21 @@ sub artistaction {
 			}
 			@small = @temparray;
 			print "\n\n\nThese files are currently selected for removal\n\n@small";
-			print "Proceed with removal from index? [y/n]\n";
-			$choice = <STDIN>; chomp($choice);
-			#GTFO!
-			next if $choice eq "n";
-			%path_of_smalls = ();
-			foreach(@small) {
-				my $temppath = $_;
-				if ($temppath =~ m/"(.+?)"/) {
-	  			$temppath = $1;
-				}
-				$path_of_smalls{$temppath} = "1";
+			$choice = "";
+			while ($choice !~ m/[y|n]/) {
+				print "Proceed with removal from index? [y/n]> ";
+				$choice = <STDIN>; chomp($choice);
 			}
-
+			if($choice eq "y") {
+				%path_of_smalls = ();
+				foreach(@small) {
+					my $temppath = $_;
+					if ($temppath =~ m/"(.+?)"/) {
+		  			$temppath = $1;
+					}
+					$path_of_smalls{$temppath} = "1";
+				}
+			}
 		}
 		else {
 			my @big = &print($location, 0, 0);
@@ -321,7 +322,7 @@ sub artistaction {
 			for(my $i = 0; $i < scalar(@small); $i++) {
 				print $i . ".) $small[$i]\n";
 			}
-			print "Type in numbers seprated by a space to keep or press enter if selection is what you want.\n";
+			print "Type in numbers seprated by a space to keep or press enter if selection is what you want> ";
 			my $choice = <STDIN>; chomp($choice);
 			my @selection = split(/\s+/, $choice);
 			foreach (@selection) {
@@ -335,16 +336,20 @@ sub artistaction {
 			}
 			@small = @temparray;
 			print "\n\n\nThese files are currently selected for removal\n\n@small";
-			print "Proceed with removal from index? [y/n]\n";
-			$choice = <STDIN>; chomp($choice);
-			next if $choice eq "n";
-			%path_of_smalls = ();
-			foreach(@small) {
-				my $temppath = $_;
-				if ($temppath =~ m/"(.+?)"/) {
-	  			$temppath = $1;
+			$choice = "";
+			while ($choice !~ m/[y|n]/) {
+				print "Proceed with removal from index? [y/n]> ";
+				$choice = <STDIN>; chomp($choice);
+			}
+			if($choice eq "y") {
+				%path_of_smalls = ();
+				foreach(@small) {
+					my $temppath = $_;
+					if ($temppath =~ m/"(.+?)"/) {
+		  			$temppath = $1;
+					}
+					$path_of_smalls{$temppath} = "1";
 				}
-				$path_of_smalls{$temppath} = "1";
 			}
 		}
 		&remove(\%path_of_smalls);
@@ -399,49 +404,64 @@ sub menu {
 		print "Choice\> ";
 		$choice = <STDIN>; chomp $choice;
 	}
-	if ($choice eq "1") {
-		print "You may enter an Arist, Album, Song, File Type, Bitrate (ie < 192 or > 128), or leave blank for all.\n";
-		print "Select \> ";
-		my $match = <STDIN>; chomp($match);
-		if($match =~ m/[\<\>]/) {
-			print "Include file path as well? [y/n]> ";
-			my $schoice = <STDIN>; chomp($schoice);
-			my $operator = $match;
-			$operator =~ s/[^\<\>]*//g;
-			my $goal = $match;
-			$goal =~ s/\D//g;
-			&artistaction("p", $match, 1, $operator, $goal) if $schoice eq "y";
-			&artistaction("p", $match, 0, $operator, $goal) if $schoice eq "n";
+	&preprint if $choice eq "1";
+	&preremove() if $choice eq "2";
+	& prebuild() if $choice eq "3";
+	&index() if $choice eq "4";
+	exit if $choice eq "5";
+}
+sub preprint{
+	print "You may enter an Artist, Album, Song, File Type, Bitrate (ie < 192 or > 128), or leave blank for all.\n";
+	print "Select \> ";
+	my $match = <STDIN>; chomp($match);
+	if($match =~ m/[\<\>]/) {
+		my $schoice = "";
+		while($schoice !~ m/[y|n|q]/) {
+			print "Include file path as well? [y/n/q to quit]> ";
+			$schoice = <STDIN>; chomp($schoice);
 		}
-		else {
-			print "Include file path as well? [y/n]> ";
-			my $schoice = <STDIN>; chomp($schoice);
-			&artistaction("p", $match, 1, 0, 0) if $schoice eq "y";
-			&artistaction("p", $match, 0, 0, 0) if $schoice eq "n";	
-		}
-		
-	}
-	elsif ($choice eq "2") {
-		print "You may enter an Arist, Album, Song, File Type, Bitrate, or leave blank for all.\n";
-		print "Select \> ";
-		my $match = <STDIN>; chomp($match);
 		my $operator = $match;
 		$operator =~ s/[^\<\>]*//g;
 		my $goal = $match;
 		$goal =~ s/\D//g;
-		&artistaction("r", $match, 1, $operator, $goal);
+		&artistaction("p", $match, 1, $operator, $goal) if $schoice eq "y";
+		&artistaction("p", $match, 0, $operator, $goal) if $schoice eq "n";
 	}
-	elsif ($choice eq "3") {
-		print "Include the path without the final \\"
-		print "Enter directory to move indexed files to> ";
-		my $dir = <STDIN>; chomp($dir);
-		&build($dir);
+	else {
+		my $schoice = "";
+		while($schoice !~ m/[y|n|q]/) {
+			print "Include file path as well? [y/n/q to quit]> ";
+			$schoice = <STDIN>; chomp($schoice);
+		}
+		&artistaction("p", $match, 1, 0, 0) if $schoice eq "y";
+		&artistaction("p", $match, 0, 0, 0) if $schoice eq "n";	
 	}
-	&index() if $choice eq "4";
-	exit if $choice eq "5";
-	print Dumper($artist_ref) if $choice eq "6";
 }
-
+sub preremove {
+	print "You may enter an Artist, Album, Song, File Type, Bitrate (ie < 192 or > 128), or leave blank for all.\n";
+	print "Select [q to quit]\> ";
+	my $match = <STDIN>; chomp($match);
+	my $operator = $match;
+	$operator =~ s/[^\<\>]*//g;
+	my $goal = $match;
+	$goal =~ s/\D//g;
+	&artistaction("r", $match, 1, $operator, $goal) unless $match eq "q";
+}
+sub prebuild {
+	print "Enter directory to move indexed files to [q to quit]> ";
+	my $dir = <STDIN>; chomp($dir);
+	$dir =~ s/[\\|\/]$//;
+	&build($dir) unless $dir eq "q";
+}
+sub postbuild {
+	my $choice = "";
+ 	while($choice !~ m/[y|n]/) {
+ 		print "\n\nRun again? [y/n]> ";
+ 		$choice = <STDIN>; chomp($choice);
+ 	}
+ 	&index() if $choice eq "y";
+ 	exit if $choice eq "n";
+}
 &index();
 while(1) {
 	&menu();
