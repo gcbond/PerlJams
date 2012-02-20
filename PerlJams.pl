@@ -110,6 +110,7 @@ sub anon_array {
 #Single digit tracks
 sub track {
 	my $text = shift;
+	return $text if !defined($text);
 	$text =~ s/\/.*//g;
 	$text =~ s/^0//g;
 	return $text;
@@ -134,16 +135,17 @@ sub sane {
 #Captilize The First Letter
 sub cap {
 	my $text = shift;
-	$text =~ s/([\w']+)/\u\L$1/g;
+	$text =~ s/([\w']+)/\u\L$1/g if defined($text);
 	return $text;
 }
 sub num {
 	my $text = shift;
-	$text =~ s/\D//g;
+	$text =~ s/\D//g if defined($text);
 	return $text;
 }
 sub spaces {
 	my $text = shift;
+	return $text if !defined($text);
 	$text =~ s/^\s+//;
 	$text =~ s/\s+$//;
 	return $text;
@@ -151,6 +153,7 @@ sub spaces {
 #The Doors -> Doors, The
 sub doors {
 	my $text = &spaces(shift);
+	return $text if !defined($text);
 	if ($text =~ m/^\bThe\b/i) {
 		$text =~ s/^\bThe\s//i;
 		$text = $text . ", The";
@@ -161,7 +164,7 @@ sub doors {
 sub build {
 	my $base = &sanitize(shift, 1);
 	print "Moving files to $base\n";
-	print "Program will ask to overwrite in case of conflict\n";
+	print "Program will ask to overwrite in case of conflict.\n";
 	for my $firstkey (keys %artists) {
 		my $level1 = &sanitize($firstkey);
 		make_path("$base/$level1");
@@ -184,24 +187,37 @@ sub build {
 				if(-e $musicfile) {
 					print "$musicfile already exists! Overwrite?[y/n by default]> ";
 					my $choice = <STDIN>; chomp($choice);
-					move($src, "$base/$level1/$level2/$filename") or warn "*ERROR could not move file located at $src\n" if $choice eq "y";
+					if($choice eq "y") {
+						if($makecopies) {
+							copy($src, "$base/$level1/$level2/$filename") or warn "*ERROR could not move file located at $src\n";
+						}
+						else {
+							move($src, "$base/$level1/$level2/$filename") or warn "*ERROR could not move file located at $src\n";
+						}
+					}
 				}
 				else {
-					move($src, "$base/$level1/$level2/$filename") or warn "*ERROR could not move file located at $src\n";
+					if($makecopies) {
+						copy($src, "$base/$level1/$level2/$filename") or warn "*ERROR could not move file located at $src\n";
+					}
+					else {
+						move($src, "$base/$level1/$level2/$filename") or warn "*ERROR could not move file located at $src\n";
+					}
+					
 				}
 			}
 		}
 	}
-	print "Done moving files!\n";
+	print "Done creating and populating directories!\n";
 	&postbuild();
 }
 sub sanitize {
 	my $text = shift;
 	if(shift) {
-		$text =~ s/[\<|\>|\.|\?|\||\*|\"]//g;
+		$text =~ s/[\<|\>|\.|\?|\||\*|\"]//g if defined($text);
 	}
 	else {
-		$text =~ s/[\<|\>|\.|\?|\||\:|\*|\"|\\|\/]//g;
+		$text =~ s/[\<|\>|\.|\?|\||\:|\*|\"|\\|\/]//g if defined($text);
 	}
 	return $text;
 }
@@ -448,12 +464,17 @@ sub preremove {
 	&artistaction("r", $match, 1, $operator, $goal) unless $match eq "q";
 }
 sub prebuild {
-	print "Enter directory to move indexed files to [q to quit]> ";
+
+	print "Enter directory to move/copy indexed files to [q to quit]> ";
 	my $dir = <STDIN>; chomp($dir);
+	print "Copy old files instead of moving them? [y/n by default]> ";
+	my $choice = <STDIN>; chomp($choice);
+	$makecopies = 1 if $choice eq "y";
 	$dir =~ s/[\\|\/]$//;
 	&build($dir) unless $dir eq "q";
 }
 sub postbuild {
+	$makecopies = 0;
 	my $choice = "";
  	while($choice !~ m/[y|n]/) {
  		print "\n\nRun again? [y/n]> ";
