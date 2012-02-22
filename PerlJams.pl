@@ -20,10 +20,12 @@ my %tags; #Each sane file is here with the hash of ID3 Tags.  File(Key) -> AnonH
 my $tags_ref = \%tags;
 my %artists; #Final Hash o' Hashes.. %Artist -> %Album -> %TrackTitle {Values}
 my $artist_ref = \%artists;
+my $makecopies = 0;
+#ExifTool is pretty flexible and works with tons of different formats.
+#I recommend you check out his site: http://www.sno.phy.queensu.ca/~phil/exiftool/
 my $exifTool = new Image::ExifTool;
 my @keep = qw(Year Track Album FileType AudioBitrate Artist Title AvgBitrate Albumartist Date);
 my $oldSetting = $exifTool->Options(Duplicates => 0); #Dismiss duplicate tags.
-my $makecopies = 0;
 #Scans a directory for music files supported by ExifTool adding them to @list.
 sub index {
 	print "Please enter the full path of the source directory to index> ";
@@ -85,7 +87,7 @@ sub make_artists {
 		#Sometimes ID3 tags are not complete and leave stuff out so check to make sure we can atleast work with it first.
 		#Otherwise just skip it because I currently have no way of easily finding out all the info.
 		#If it is defined it is usually not blank ("") but just to make sure.
-		if(defined($art) && defined($alb) && defined($tit) && defined($fil) || $art eq "" || $alb eq "" || $tit eq "" || $fil = "") {
+		if(defined($art) && defined($alb) && defined($tit) && defined($fil) || $art eq "" || $alb eq "" || $tit eq "" || $fil eq "") {
 			#Everything is there lets populate %artists now.
 			#Don't overwrite [myArtist] if the hash already contains it.
 			$artists{$art} = &anon_hash() unless $artists{$art};
