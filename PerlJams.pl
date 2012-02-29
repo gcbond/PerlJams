@@ -52,11 +52,12 @@ sub menu {
 	print "4) Enter a new source directory to index (or index again)\n";
 	print "5) Save index\n";
 	print "6) Read saved index\n";
-	print "7) Quit!\n";
+	print "7) Create SQL script\n";
+	print "8) Quit!\n";
 	print "Choice\> ";
 
 	my $choice = <STDIN>; chomp($choice);
-	while($choice !~ m/[1-8]/)
+	while($choice !~ m/[1-9]/)
 	{
 		print "Choice> ";
 		$choice = <STDIN>; chomp $choice;
@@ -67,8 +68,9 @@ sub menu {
 	&index() if $choice eq "4";
 	&serializeindex() if $choice eq "5";
 	&unserializeindex() if $choice eq "6";
-	exit if $choice eq "7";
-	print Dumper($artist_ref) if $choice eq "8";
+	&presql() if $choice eq "7";
+	exit if $choice eq "8";
+	print Dumper($artist_ref) if $choice eq "9";
 }
 #Create an anonymous hash.
 sub anon_hash {
@@ -261,7 +263,18 @@ sub track {
 	$text =~ s/^0//g;
 	return $text;
 }
-
+#Get rid of illegal chars, forcefully.
+#In otherwords don't check with the user after removing illegal chars.
+sub sanitize {
+	my $text = shift;
+	if(shift) {
+		$text =~ s/[\<|\>|\.|\?|\||\*|\"]//g if defined($text);
+	}
+	else {
+		$text =~ s/[\<|\>|\.|\?|\||\:|\*|\"|\\|\/]//g if defined($text);
+	}
+	return $text;
+}
 #Replaces &, _, Numbers.
 sub sane {
 	my $text = shift;
@@ -286,9 +299,26 @@ sub sane {
 #Captilize The First Letter Of Each Word
 sub cap {
 	my $text = shift;
+	return $text if !defined($text) || $text eq "";
+	#Replace wierd characters
+	$text =~ s/(à|á|â|ã|ä|å|À|Á|Â|Ã|Å)/a/g;
+	$text =~ s/(ç|Ç)/c/g;
+	$text =~ s/(è|é|ê|ë|È|É|Ê|Ë)/e/g;
+	$text =~ s/(ì|í|î|ï|Ì|Í|Î|Ï)/i/g;
+	$text =~ s/(ð|Ð)/d/g;
+	$text =~ s/(ñ|Ñ)/n/g;
+	$text =~ s/(ò|ó|ô|õ|ö|ø|Ò|Ó|Ô|Õ|Ö|Ø)/o/g;
+	$text =~ s/(ù|ú|û|ü|Ù|Ú|Û|Ü)/u/g;
+	$text =~ s/(ý|ÿ|Ý|Ÿ)/y/g;
+	$text =~ s/(š|Š)/s/g;
+	$text =~ s/(¥)/y/g;
+	#These bare words are not allowed in Windows.
+	$text =~ s/\b(com1|com2|com3|com4|com5|com6|com7|com8|com9|lpt1|lpt2|lpt|lpt3|lp4|lpt5|lpt6|lpt7|lpt8|lpt9|con|nul|pm)\b//g;
 	#Since I call this right after trying to initilize it, make sure its not null.
-	$text =~ s/([\w']+)/\u\L$1/g if defined($text);
-	return $text;
+	$text =~ s/([\w']+)/\u\L$1/g;
+	#Get rid of any other junk
+	$text =~ s/[^A-Za-z0-9\s\-\[\]\(\)_\|!#$)]//g;
+	return &spaces($text);
 }
 
 #Returns just the number
@@ -303,6 +333,7 @@ sub num {
 sub spaces {
 	my $text = shift;
 	return $text if !defined($text);
+	$text =~ s/\s{2,}/ /g;
 	$text =~ s/^\s+//;
 	$text =~ s/\s+$//;
 	return $text;
@@ -514,19 +545,6 @@ sub postbuild {
  	}
  	&index() if $choice eq "y";
  	exit if $choice eq "n";
-}
-
-#Get rid of illegal chars, forcefully.
-#In otherwords don't check with the user after removing illegal chars.
-sub sanitize {
-	my $text = shift;
-	if(shift) {
-		$text =~ s/[\<|\>|\.|\?|\||\*|\"]//g if defined($text);
-	}
-	else {
-		$text =~ s/[\<|\>|\.|\?|\||\:|\*|\"|\\|\/]//g if defined($text);
-	}
-	return $text;
 }
 
 ##If there is a left over key with no values it removes it.
@@ -806,4 +824,96 @@ sub print {
 		}
 	}
 	return @toprint;
+}
+#Prompt for file to write sql script to.
+sub presql {
+
+	print "Enter the name of the SQL script: ";
+	my $file = <STDIN>; chomp($file);
+	&sql($file) unless $file eq "q";
+}
+#Build sql statement.
+sub sql {
+	my $SQL_file = &spaces(shift);
+
+	print "\n\nGenerating SQL Script: $SQL_file\n";
+	open (MYFILE, ">>$SQL_file") or warn "Could not open file to write!" && &printerror("Could not open SQL Script to write to! Location $SQL_file");
+	print MYFILE "-- This script will create the database music_database\n";
+	print MYFILE "-- and will also populate the table with your music list\n";
+	print MYFILE "CREATE DATABASE `music_database` ;\n";
+	print MYFILE "USE music_database;\n";
+	print MYFILE "CREATE TABLE `music_database`.`music_list` (\n";
+	print MYFILE "`id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY ,\n";
+	print MYFILE "`artist` VARCHAR( 255 ) NOT NULL ,\n";
+	print MYFILE "`album` VARCHAR( 255 ) NOT NULL ,\n";
+	print MYFILE "`title` VARCHAR( 255 ) NOT NULL ,\n";
+	print MYFILE "`track_number` VARCHAR( 255 ) NOT NULL ,\n";
+	print MYFILE "`bitrate` INT NOT NULL ,\n";
+	print MYFILE "`file_extension` VARCHAR( 10 ) NOT NULL,\n";
+	print MYFILE "`path` VARCHAR( 255 ) NOT NULL\n";
+	print MYFILE ") ENGINE = MYISAM ;\n";
+	
+	for my $artistName (keys %artists) {
+		my $artistDirectory = &sanitize($artistName);
+
+		for my $albumName (keys %{$artist_ref->{$artistName}} ) {
+			my $albumDirectory = &sanitize($albumName);
+
+			for my $song (keys %{$artist_ref->{$artistName}->{$albumName}} ) {
+				my $trackTitle = &sanitize($song);
+				my $sourceFileLocation = $artists{$artistName}{$albumName}{$song}{"path"};
+				my $file_extension = $artists{$artistName}{$albumName}{$song}{"filetype"};
+				my $trackno = $artists{$artistName}{$albumName}{$song}{"track"};
+				my $new_file_bitrate = $artists{$artistName}{$albumName}{$song}{"bitrate"};
+				my $filename;
+				my $filePath;
+				
+				if(defined($trackno)) {
+					$filename = $trackno . " - " . $trackTitle . ".$file_extension";
+				}
+				else {
+					$filename = $trackTitle. "." . lc($file_extension);
+					$trackno = "NULL";
+				}
+				
+				$filePath = "$artistDirectory/$albumDirectory/$filename";
+				
+				
+				if(!defined($new_file_bitrate) || $new_file_bitrate == 0) {
+					
+					$new_file_bitrate = "NULL";
+				}
+
+				if($verbose){
+					print "Adding $sourceFileLocation --> $SQL_file\n";
+				}
+				
+				if(defined($artistDirectory) && $artistDirectory ne "" && defined($albumDirectory) && $albumDirectory ne "" && defined($trackTitle) && $trackTitle ne ""){
+					print MYFILE "INSERT INTO `music_database`.`music_list` (
+							`artist` ,
+							`album` ,
+							`title`,
+							`track_number` ,
+							`bitrate` ,
+							`file_extension`,
+							`path`)
+							VALUES (\"". $artistDirectory .
+							"\", \"" . $albumDirectory .
+							"\", \"" . $trackTitle .
+							"\", \"" . $trackno .
+							"\", \"" . $new_file_bitrate .
+							"\", \"" . $file_extension .
+							"\", \"" . $filePath .
+							"\");\n";
+				}
+			}
+		}
+	}
+	
+	close (MYFILE); 
+	print color 'Bold Green' if $operating_system =~ m/(linux|darwin)/i;
+	print "\nDone creating SQL Script!\n";
+	print color 'reset' if $operating_system =~ m/(linux|darwin)/i;
+	
+	&postbuild();
 }
