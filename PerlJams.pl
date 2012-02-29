@@ -151,16 +151,16 @@ sub make_artists {
 		# anon_hash = anonymous hash.
 		# num = Returns the numbers in the string.
 		############
-		my $artist = &sane($tags_ref->{$filepath}->{"Albumartist"});
-		my $album = &cap($tags_ref->{$filepath}->{"Album"});
-		my $title = &cap($tags_ref->{$filepath}->{"Title"});
+		my $artist = &sane($tags_ref->{$filepath}->{"Albumartist"}, 1);
+		my $album = &sane($tags_ref->{$filepath}->{"Album"}, 1);
+		my $title = &sane($tags_ref->{$filepath}->{"Title"});
 		my $file_type = $tags_ref->{$filepath}->{"FileType"};
 		my $file_size = $tags_ref->{$filepath}->{"FileSize"};
 		my $track = $tags_ref->{$filepath}->{"Track"};
 		my $audio_bitrate = $tags_ref->{$filepath}->{"AudioBitrate"};
 		my $current_hash_bitrate = 0;
 		$artist_size += &num($file_size) if defined($file_size);
-		$artist = &sane($tags_ref->{$filepath}->{"Artist"}) if !defined($artist); #Sometimes ID3 uses AlbumArtists or Artist
+		$artist = &sane($tags_ref->{$filepath}->{"Artist"}, 1) if !defined($artist); #Sometimes ID3 uses AlbumArtists or Artist
 		$artist = &doors($artist);
 		#Sometimes ID3 tags are not complete and leave stuff out so check to make sure we can atleast work with it first.
 		#Otherwise just skip it because I currently have no way of easily finding out all the info.
@@ -278,15 +278,12 @@ sub sanitize {
 #Replaces &, _, Numbers.
 sub sane {
 	my $text = shift;
+	my $checkNumber = shift;
 	#Since I call this right after trying to initilize it, make sure its not null.
 	return $text if !defined($text);
 	$text =~ s/&/and/g;
 	$text =~ s/_/ /g;
-	#I don't like doing this but if the hash already has that value
-	#why fool around with the numbers.
-	if($artists{$text}) {
-		return &cap($text);
-	}
+	return &cap($text) unless $checkNumber;
 	my $number = $text;
 	if($number =~ m/\s\d\s/) {
 		$number =~ s/\D//g;
@@ -310,14 +307,14 @@ sub cap {
 	$text =~ s/(ò|ó|ô|õ|ö|ø|Ò|Ó|Ô|Õ|Ö|Ø)/o/g;
 	$text =~ s/(ù|ú|û|ü|Ù|Ú|Û|Ü)/u/g;
 	$text =~ s/(ý|ÿ|Ý|Ÿ)/y/g;
-	$text =~ s/(š|Š)/s/g;
+	$text =~ s/(š|Š|$)/s/g;
 	$text =~ s/(¥)/y/g;
 	#These bare words are not allowed in Windows.
 	$text =~ s/\b(com1|com2|com3|com4|com5|com6|com7|com8|com9|lpt1|lpt2|lpt|lpt3|lp4|lpt5|lpt6|lpt7|lpt8|lpt9|con|nul|pm)\b//g;
 	#Since I call this right after trying to initilize it, make sure its not null.
 	$text =~ s/([\w']+)/\u\L$1/g;
 	#Get rid of any other junk
-	$text =~ s/[^A-Za-z0-9\s\-\[\]\(\)_\|!#$)]//g;
+	$text =~ s/[^A-Za-z0-9\s\-\[\]\(\)_\|!)]//g;
 	return &spaces($text);
 }
 
