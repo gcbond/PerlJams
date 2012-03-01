@@ -1,0 +1,74 @@
+body {
+	margin: 0px 0px 0px 0px;
+	padding: 0px 0px 0px 0px;
+}
+
+#content {
+	width: 95%;
+	height:100%;
+    margin-left: auto;
+   	margin-right: auto;
+}
+
+#searchContainer table {
+    margin-left: auto;
+   	margin-right: auto;
+    height: 60px;
+    width: 95%;
+    font-family: "Trebuchet MS","Trebuchet","Verdana","Arial";
+    font-weight: bold;
+    padding-top: 10px;
+    padding-bottom: 10px
+}
+#search {
+    float: right;
+    padding-right: 15px;
+}
+#header {
+    padding-left: 15px;
+    float: left;
+}
+
+#musicList{
+    width: 100%;
+    padding-left: 10px;
+    padding-right:10px;
+    font-family: "Trebuchet MS","Trebuchet","Verdana","Arial";
+}
+#musicListHeader {
+    font-weight:bold;
+    text-decoration:underline;
+}
+#searchContainerTable {
+    height:100%;
+}
+
+#musicList a {
+    color: #0878AA;
+    text-decoration: none;
+}
+.evenRow {
+    background-color: #EFEFEF;
+}
+
+.oddRow {
+    background-color: #FFFFFF;
+}
+
+#DownloadList {
+    margin-left: auto;
+    margin-right: auto;
+}
+#DownloadList a {
+    color: #0878AA;
+    text-decoration: none;
+}
+#zipFileDownload{
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+}
+#zipFileDownload a {
+    color: #0878AA;
+    text-decoration: none;
+}

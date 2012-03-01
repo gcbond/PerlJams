@@ -8,6 +8,7 @@
 # The goal is to create a common structure for your music library
 # The structure is EX: Artist/Album/1 - Track.mp3
 # The files will be moved/copied from the old source to the new directory.
+# Check error.log for details on why files were not indexed.
 
 use strict;
 use warnings;
@@ -19,7 +20,6 @@ use Image::ExifTool;
 use Lingua::EN::Numbers qw(num2en num2en_ordinal);
 use Storable;
 use Term::ANSIColor;
-use Data::Dumper;
 
 my @rawlist; #Array of raw music files.
 my %tags; #Each sane file is here with the hash of ID3 Tags.  File(Key) -> AnonHash {ID3(Key) -> Value}
@@ -34,10 +34,24 @@ my $saved_index_path = getcwd() . "/index.pl";
 my $artist_size = 0;
 my $verbose = 0;
 my $operating_system = $^O;
+my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
+my @weekDays = qw(Sun Mon Tue Wed Thu Fri Sat Sun);
+my ($second, $minute, $hour, $dayOfMonth, $month, $yearOffset, $dayOfWeek, $dayOfYear, $daylightSavings) = localtime();
+my $year = 1900 + $yearOffset;
+my $theTime = "$hour:$minute:$second, $weekDays[$dayOfWeek] $months[$month] $dayOfMonth, $year";
+&printerror("######################################\n$theTime\n");
 
 if(defined($ARGV[0]) && $ARGV[0] =~ /^--verbose$/ ){
 	$verbose = 1;
 }
+print "Welcome to PerlJams.  This is a utility designed to organize your music into directories by Artist\\Album\\Track.mp3.\n";
+print "First the program needs to scan your music by selecting option 1.\n";
+print "Afterwards you can search and remove items from the index created by PerlJams.  Once your happy you can then move or copy to a new directory\n";
+print "You may save the index to come back to at a later time.  Index is saved as index.pl\n";
+print "You can generate a sql script to create a database to publish on your website if you wish. (Check the web folder for more info.)\n";
+print "If duplicate files are found, the better quality one is kept.\n"
+print "Check error.log for issues with music files.\n";
+print "--------------------------------------------\n\n";
 
 #&index();
 while(1) {
@@ -46,31 +60,30 @@ while(1) {
 #Menu for the user
 sub menu {
 	print "What would you like to do?\n";
-	print "1) Print all music files matching x\n";
-	print "2) Remove (from index) all music files matching x\n";
-	print "3) Move & Rename indexed files\n";
-	print "4) Enter a new source directory to index (or index again)\n";
-	print "5) Save index\n";
-	print "6) Read saved index\n";
+	print "1) Enter a new source directory to index (or index again)\n";
+	print "2) Print all music files matching x\n";
+	print "3) Remove (from index) all music files matching x\n";
+	print "4) Save index\n";
+	print "5) Read saved index\n";
+	print "6) Move/Copy indexed files\n";
 	print "7) Create SQL script\n";
 	print "8) Quit!\n";
 	print "Choice\> ";
 
 	my $choice = <STDIN>; chomp($choice);
-	while($choice !~ m/[1-9]/)
+	while($choice !~ m/[1-8]/)
 	{
 		print "Choice> ";
 		$choice = <STDIN>; chomp $choice;
 	}
-	&preprint if $choice eq "1";
-	&preremove() if $choice eq "2";
-	&prebuild() if $choice eq "3";
-	&index() if $choice eq "4";
-	&serializeindex() if $choice eq "5";
-	&unserializeindex() if $choice eq "6";
+	&index() if $choice eq "1";
+	&preprint if $choice eq "2";
+	&preremove() if $choice eq "3";
+	&serializeindex() if $choice eq "4";
+	&unserializeindex() if $choice eq "5";
+	&prebuild() if $choice eq "6";
 	&presql() if $choice eq "7";
 	exit if $choice eq "8";
-	print Dumper($artist_ref) if $choice eq "9";
 }
 #Create an anonymous hash.
 sub anon_hash {
@@ -114,6 +127,10 @@ sub index {
 }
 #Extracts ID3 tags from files in @rawlist, adding ID3 tags to %tags.
 sub id3 {
+	($second, $minute, $hour, $dayOfMonth, $month, $yearOffset, $dayOfWeek, $dayOfYear, $daylightSavings) = localtime();
+	$year = 1900 + $yearOffset;
+	$theTime = "$hour:$minute:$second, $weekDays[$dayOfWeek] $months[$month] $dayOfMonth, $year";
+	print "Prcoess started at $theTime.\n";
 	my $music_list_length = scalar(@rawlist);
 	%tags = ();  #Make sure %tags is empty first.
 	print "Retrieving ID3 tags.... this may take awhile!\n";
@@ -178,9 +195,9 @@ sub make_artists {
 			}
 			if($artist eq "" || $album eq "" || $title eq "" || $file_type eq "") {
 				&printerror("Error with tags in file $filepath\n");
-				&printerror("\tError with Artist") if $artist eq "";
-				&printerror("\tError with Album") if $album eq "";
-				&printerror("\tError with Title") if $title eq "";
+				&printerror("\tError with Artist\n") if $artist eq "";
+				&printerror("\tError with Album\n") if $album eq "";
+				&printerror("\tError with Title\n") if $title eq "";
 				$no_id3_tags++;
 				if($verbose) {
 					print color 'Bold Red' if $operating_system =~ m/(linux|darwin)/i;
@@ -237,9 +254,9 @@ sub make_artists {
 				print color 'reset' if $operating_system =~ m/(linux|darwin)/i;
 			}
 			&printerror("Error with tags in file $filepath\n");
-			&printerror("\tError with Artist") if !defined($artist);
-			&printerror("\tError with Album") if !defined($album);
-			&printerror("\tError with Title") if !defined($title);
+			&printerror("\tError with Artist\n") if !defined($artist);
+			&printerror("\tError with Album\n") if !defined($album);
+			&printerror("\tError with Title\n") if !defined($title);
 			next;
 		}
 	}
@@ -251,7 +268,7 @@ sub make_artists {
 	print color 'reset' if $operating_system =~ m/(linux|darwin)/i;
 	print "Files dropped because a better quality version was found: " . $files_with_lower_bitrate . "\n";
 	print "Duplicate files not counted: " . $dupes . "\n";
-	print "Total Size is = $artist_size MB\n";
+	#print "Total Size is = $artist_size MB\n";
 }
 
 #Single digit tracks
@@ -307,14 +324,13 @@ sub cap {
 	$text =~ s/(ò|ó|ô|õ|ö|ø|Ò|Ó|Ô|Õ|Ö|Ø)/o/g;
 	$text =~ s/(ù|ú|û|ü|Ù|Ú|Û|Ü)/u/g;
 	$text =~ s/(ý|ÿ|Ý|Ÿ)/y/g;
-	$text =~ s/(š|Š|$)/s/g;
+	$text =~ s/(š|Š|\$)/s/g;
 	$text =~ s/(¥)/y/g;
 	#These bare words are not allowed in Windows.
 	$text =~ s/\b(com1|com2|com3|com4|com5|com6|com7|com8|com9|lpt1|lpt2|lpt|lpt3|lp4|lpt5|lpt6|lpt7|lpt8|lpt9|con|nul|pm)\b//g;
-	#Since I call this right after trying to initilize it, make sure its not null.
 	$text =~ s/([\w']+)/\u\L$1/g;
 	#Get rid of any other junk
-	$text =~ s/[^A-Za-z0-9\s\-\[\]\(\)_\|!)]//g;
+	$text =~ s/[^A-Za-z0-9\s\-\[\]\(\)_\|!|')]//g;
 	return &spaces($text);
 }
 
@@ -529,19 +545,6 @@ sub build {
 	print color 'Bold Green' if $operating_system =~ m/(linux|darwin)/i;
 	print "\nDone creating and populating directories!\n";
 	print color 'reset' if $operating_system =~ m/(linux|darwin)/i;
-	
-	&postbuild();
-}
-
-#After build Menu
-sub postbuild {
-	my $choice = "";
- 	while($choice !~ m/[y|n]/) {
- 		print "\n\nRun again? [y/n]> ";
- 		$choice = <STDIN>; chomp($choice);
- 	}
- 	&index() if $choice eq "y";
- 	exit if $choice eq "n";
 }
 
 ##If there is a left over key with no values it removes it.
@@ -575,44 +578,6 @@ sub remove {
 				if($removal{$songs_path}) {
 					print "Removing from index $songs_path\n";
 					delete $artist_ref->{$firstkey}->{$secondkey}->{$song} or warn "Could not remove indexes\n";
-					#The following has all been commented out because it is no longer need
-					#now only the best duplicate is kept.
-					############################################################
-					# #If there is duplicates, decrement them
-					# my $testsong;
-					# my $i;
-					# #Add a d1 if song does not have it.
-					# if($song =~ m/d\d$/) {
-					# 	$i = substr($song, length($song)-1, length($song)-1)+1;
-					# 	$testsong = substr($song, 0, length($song)-1);
-					# }
-					# else {
-					# 	$i = 1;
-					# 	$testsong = $song . " d";
-					# }
-					# #While %artists has the duplicate
-					# #$testsong is already appended with the " d"
-					# while($artist_ref->{$firstkey}->{$secondkey}->{"$testsong$i"}) {
-					# 	#the last song i checked before this one
-					# 	my $last = $testsong . ($i-1);
-					# 	if (($i - 1) == 0) {
-					# 		#bump down to just the title if thats what we deleted previously.
-					# 		$artists{$firstkey}{$secondkey}{$song} = $artists{$firstkey}{$secondkey}{"$testsong$i"};
-					# 	$i++;
-					# 	}
-					# 	else {
-					# 		#Make what we just passed the value of the current thing were on (This is decrementing)
-					# 		my $ref = $artist_ref->{$firstkey}->{$secondkey}->{"$testsong$i"};
-					# 		$artists{$firstkey}{$secondkey}{$last} = $ref;
-					# 	$i++;
-					# 	}
-					# }
-					# $i--;
-					# #Finally if this is the end of the line, we already decremented so delete this
-					# #Right now it just makes the song have no values(no path, no filetype, nothing), can't figure out how to delete the 
-					# #actual song from the album hash without deleting all the songs in that album.
-					# delete $artists{$firstkey}{$secondkey}{"$testsong$i"};
-					###############################################################
 				}
 			}
 		}
@@ -834,7 +799,7 @@ sub sql {
 	my $SQL_file = &spaces(shift);
 
 	print "\n\nGenerating SQL Script: $SQL_file\n";
-	open (MYFILE, ">>$SQL_file") or warn "Could not open file to write!" && &printerror("Could not open SQL Script to write to! Location $SQL_file");
+	open (MYFILE, ">>$SQL_file") or warn "Could not open file to write!" && &printerror("Could not open SQL Script to write to! Location $SQL_file\n");
 	print MYFILE "-- This script will create the database music_database\n";
 	print MYFILE "-- and will also populate the table with your music list\n";
 	print MYFILE "CREATE DATABASE `music_database` ;\n";
@@ -911,6 +876,4 @@ sub sql {
 	print color 'Bold Green' if $operating_system =~ m/(linux|darwin)/i;
 	print "\nDone creating SQL Script!\n";
 	print color 'reset' if $operating_system =~ m/(linux|darwin)/i;
-	
-	&postbuild();
 }
