@@ -49,7 +49,7 @@ print "First the program needs to scan your music by selecting option 1.\n";
 print "Afterwards you can search and remove items from the index created by PerlJams.  Once your happy you can then move or copy to a new directory\n";
 print "You may save the index to come back to at a later time.  Index is saved as index.pl\n";
 print "You can generate a sql script to create a database to publish on your website if you wish. (Check the web folder for more info.)\n";
-print "If duplicate files are found, the better quality one is kept.\n"
+print "If duplicate files are found, the better quality one is kept.\n";
 print "Check error.log for issues with music files.\n";
 print "--------------------------------------------\n\n";
 
@@ -114,15 +114,27 @@ sub unserializeindex {
 }
 #Scans a directory for music files supported by ExifTool adding them to @rawlist.
 sub index {
-	print "Please enter the full path of the source directory to index> ";
-	my $sdir = <STDIN>; chomp($sdir);
+	my @sdirs;
+	my $choice = "t";
+	print "Please enter the full path of the source directory to index [enter q when finished]";
+	while($choice ne "q") {
+		print "> ";
+		$choice = <STDIN>; chomp($choice);
+		push(@sdirs, $choice) unless $choice eq "q";
+	}
 	@rawlist =();
-	#File::Find allows this to happen, it will go through each file including . and .. for a given directory.
-	find sub {
-		my $workingfile = getcwd() . "/" . $_;
-		#Only add it to the list if it is music like.
-		push(@rawlist, $workingfile) if($_ =~ m/\.(wav|flac|m4a|wma|mp3|mp4|aac|ogg)+$/i);
-	}, $sdir;
+	#File::Find allows this to happen, it will go through each file including the files . and .. for a given directory.
+	foreach my $sdir(@sdirs) {
+		find sub {
+			my $workingfile = getcwd() . "/" . $_;
+			if ($workingfile =~ /\.skip/i) {
+				print "BECAUSE YOU TOLD ME TO $workingfile\n";
+				return;
+			}
+			#Only add it to the list if it is music like.
+			push(@rawlist, $workingfile) if($_ =~ m/\.(wav|flac|m4a|wma|mp3|mp4|aac|ogg)+$/i);
+		}, $sdir;
+	}
 	&id3();  #Next step is to get all the ID3 tags.
 }
 #Extracts ID3 tags from files in @rawlist, adding ID3 tags to %tags.
@@ -171,7 +183,7 @@ sub make_artists {
 		my $artist = &sane($tags_ref->{$filepath}->{"Albumartist"}, 1);
 		my $album = &sane($tags_ref->{$filepath}->{"Album"}, 1);
 		my $title = &sane($tags_ref->{$filepath}->{"Title"});
-		my $file_type = $tags_ref->{$filepath}->{"FileType"};
+		my $file_type = &type($tags_ref->{$filepath}->{"FileType"});
 		my $file_size = $tags_ref->{$filepath}->{"FileSize"};
 		my $track = $tags_ref->{$filepath}->{"Track"};
 		my $audio_bitrate = $tags_ref->{$filepath}->{"AudioBitrate"};
@@ -278,6 +290,13 @@ sub track {
 	return $text if !defined($text);
 	$text =~ s/\/.*//g;
 	$text =~ s/^0//g;
+	return $text;
+}
+#Removes 'audio' from audio/mp3 in filetypes.
+sub type {
+	my $text = shift;
+	return $text if !defined($text);
+	$text =~ s/audio\///;
 	return $text;
 }
 #Get rid of illegal chars, forcefully.
@@ -787,6 +806,9 @@ sub print {
 	}
 	return @toprint;
 }
+###################
+# Charles Lundblad
+###################
 #Prompt for file to write sql script to.
 sub presql {
 
