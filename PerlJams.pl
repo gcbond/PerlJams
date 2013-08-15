@@ -10,6 +10,10 @@
 # The files will be moved/copied from the old source to the new directory.
 # Check error.log for details on why files were not indexed.
 
+#ToDo:	Add Symlinks
+#		Add Genre
+#		File::Find walking of mounted dirs?
+
 use strict;
 use warnings;
 use File::Find;
@@ -17,7 +21,7 @@ use File::Copy;
 use File::Path qw(make_path);
 use Cwd;
 use Image::ExifTool;
-use Lingua::EN::Numbers qw(num2en num2en_ordinal);
+#use Lingua::EN::Numbers qw(num2en num2en_ordinal);
 use Storable;
 use Term::ANSIColor;
 
@@ -27,7 +31,7 @@ my $tags_ref = \%tags;
 my %artists; #Final Hash o' Hashes.. %Artist -> %Album -> %TrackTitle {Values}
 my $artist_ref = \%artists;
 my $exifTool = new Image::ExifTool; #For more info check out http://www.sno.phy.queensu.ca/~phil/exiftool/
-my @keep = qw(FileSize Year Track Album FileType AudioBitrate Artist Title AvgBitrate Albumartist Date);
+my @keep = qw(FileSize Year Track Album FileType AudioBitrate Artist Title AvgBitrate Albumartist Date Genre);
 my $oldSetting = $exifTool->Options(Duplicates => 0); #Dismiss duplicate tags.
 my $error_log_path = getcwd() . "/error.log";
 my $saved_index_path = getcwd() . "/index.pl";
@@ -128,7 +132,7 @@ sub index {
 		find sub {
 			my $workingfile = getcwd() . "/" . $_;
 			if ($workingfile =~ /\.skip/i) {
-				print "BECAUSE YOU TOLD ME TO $workingfile\n";
+				print "Skipping $workingfile\n";
 				return;
 			}
 			#Only add it to the list if it is music like.
@@ -139,18 +143,20 @@ sub index {
 }
 #Extracts ID3 tags from files in @rawlist, adding ID3 tags to %tags.
 sub id3 {
-	($second, $minute, $hour, $dayOfMonth, $month, $yearOffset, $dayOfWeek, $dayOfYear, $daylightSavings) = localtime();
-	$year = 1900 + $yearOffset;
-	$theTime = "$hour:$minute:$second, $weekDays[$dayOfWeek] $months[$month] $dayOfMonth, $year";
-	print "Prcoess started at $theTime.\n";
+	#($second, $minute, $hour, $dayOfMonth, $month, $yearOffset, $dayOfWeek, $dayOfYear, $daylightSavings) = localtime();
+	#$year = 1900 + $yearOffset;
+	#$theTime = "$hour:$minute:$second, $weekDays[$dayOfWeek] $months[$month] $dayOfMonth, $year";
+	#print "Process started at $theTime.\n";
+	my $startTime = time - $^T;
 	my $music_list_length = scalar(@rawlist);
 	%tags = ();  #Make sure %tags is empty first.
 	print "Retrieving ID3 tags.... this may take awhile!\n";
 	my $i = 1;
 	foreach (@rawlist) {
-		print "25% done\n" if $music_list_length / $i == 4;
-		print "50% done\n" if $music_list_length / $i == 2;
-		print "75% done\n" if $music_list_length / $i == (4/3);
+		if($i%500 == 0) {
+			my $deltaTime = (time - $^T) - $startTime;
+			print "$i of $music_list_length in $deltaTime second(s)\n";
+		}
 		if($verbose){
 			print "(" . $i . " of " . $music_list_length . ") Retrieving ID3 tags from: $_\n";
 		}
@@ -158,6 +164,8 @@ sub id3 {
 		$tags{"$_"} = $exifTool->ImageInfo("$_", @keep) or warn "*Error getting ID3 tags from $_\n";
 		$i++;
 	}
+	my $elapsedTime = (time - $^T) - $startTime;
+	print "Process completed in $elapsedTime second(s)\n";
 	&make_artists();
 }
 #Builds %artist -> %albums -> %songs -> attributes hash from %tags
@@ -319,13 +327,14 @@ sub sane {
 	return $text if !defined($text);
 	$text =~ s/&/and/g;
 	$text =~ s/_/ /g;
-	return &cap($text) unless $checkNumber;
-	my $number = $text;
-	if($number =~ m/\s\d\s/) {
-		$number =~ s/\D//g;
-		$number = num2en($number);
-		$text =~ s/\s\d\s/$number/g;
-	}
+	#Disabling this for now.
+	#return &cap($text) unless $checkNumber;
+	#my $number = $text;
+	#if($number =~ m/\s\d\s/) {
+	#	$number =~ s/\D//g;
+	#	$number = num2en($number);
+	#	$text =~ s/\s\d\s/$number/g;
+	#}
 	return &cap($text);
 }
 
@@ -401,6 +410,7 @@ sub build {
 	$choice = 0;
 	$moveFile = 0;
 
+	#Add Symlinks
 	print "Moving files to $base\n";
 	print "Would you like to copy or move your source files?\n";
 	print "1) Copy\n";
