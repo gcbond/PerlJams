@@ -135,28 +135,33 @@ sub index {
 		$curDir = shift(@sdirs);
 		#Try to change dir if it fails or has .skip then move along.
 		if(chdir($curDir) && $curDir !~ /\.skip$/i) {
-			opendir(CURRENTDIRECTORY, $curDir) or warn "Could not open $curDir\n";
-			#All files in the directory including . and .. as well as directories
-			@names = grep {$_ ne "." and $_ ne ".."} readdir(CURRENTDIRECTORY);
-			#Only want files here.
-			@files = grep{-f $_} @names;
-			#Only want directories here
-			@directories = grep{-d $_} @names;
-			closedir(CURRENTDIRECTORY);
+			if(opendir(CURRENTDIRECTORY, $curDir)) {
+				#All files in the directory including . and .. as well as directories
+				@names = grep {$_ ne "." and $_ ne ".."} readdir(CURRENTDIRECTORY);
+				#Only want files here.
+				@files = grep{-f $_} @names;
+				#Only want directories here
+				@directories = grep{-d $_} @names;
+				closedir(CURRENTDIRECTORY);
 
-			foreach (@files) {
-				#If we can read the file add it to the list if it is music like
-				if(-r) {
-					my $workingfile = getcwd() . "/" . $_;
-					push(@rawlist, $workingfile) if($_ =~ m/\.(wav|flac|m4a|wma|mp3|mp4|aac|ogg)+$/i);
+				foreach (@files) {
+					#If we can read the file add it to the list if it is music like
+					if(-r) {
+						my $workingfile = getcwd() . "" . $_;
+						push(@rawlist, $workingfile) if($_ =~ m/\.(wav|flac|m4a|wma|mp3|mp4|aac|ogg)+$/i);
+					}
+					else {
+						warn "Unable to read file $_\n";
+					}
 				}
-				else {
-					warn "Unable to read file $_\n";
-				}
+				#Add the directories
+				@directories = map{ $curDir . "/" . $_} @directories;
+				push(@sdirs, @directories);
 			}
-			#Add the directories
-			@directories = map{ $curDir . "/" . $_} @directories;
-			push(@sdirs, @directories);
+			else {
+				warn "Unable to open directory $curDir\n";
+			}
+			
 		}
 		else {
 			warn "Unable to open directory $curDir\n" unless $curDir =~ /\.skip$/i;
