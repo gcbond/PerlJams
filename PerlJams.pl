@@ -16,7 +16,7 @@
 
 use strict;
 use warnings;
-use File::Find;
+#use File::Find;
 use File::Copy;
 use File::Path qw(make_path);
 use Cwd;
@@ -120,6 +120,8 @@ sub unserializeindex {
 sub index {
 	my @sdirs;
 	my $choice = "t";
+	my $curDir;
+	my (@names, @files, @directories);
 	print "Please enter the full path of the source directory to index [enter q when finished]";
 	while($choice ne "q") {
 		print "> ";
@@ -127,18 +129,51 @@ sub index {
 		push(@sdirs, $choice) unless $choice eq "q";
 	}
 	@rawlist =();
-	#File::Find allows this to happen, it will go through each file including the files . and .. for a given directory.
-	foreach my $sdir(@sdirs) {
-		find sub {
-			my $workingfile = getcwd() . "/" . $_;
-			if ($workingfile =~ /\.skip/i) {
-				print "Skipping $workingfile\n";
-				return;
+
+	#List of all directores to search
+	while(@sdirs) {
+		$curDir = shift(@sdirs);
+		#Try to change dir if it fails or has .skip then move along.
+		if(chdir($curDir) && $curDir !~ /\.skip$/i) {
+			opendir(CURRENTDIRECTORY, $curDir) or warn "Could not open $curDir\n";
+			#All files in the directory including . and .. as well as directories
+			@names = grep {$_ ne "." and $_ ne ".."} readdir(CURRENTDIRECTORY);
+			#Only want files here.
+			@files = grep{-f $_} @names;
+			#Only want directories here
+			@directories = grep{-d $_} @names;
+			closedir(CURRENTDIRECTORY);
+
+			foreach (@files) {
+				#If we can read the file add it to the list if it is music like
+				if(-r) {
+					my $workingfile = getcwd() . "/" . $_;
+					push(@rawlist, $workingfile) if($_ =~ m/\.(wav|flac|m4a|wma|mp3|mp4|aac|ogg)+$/i);
+				}
+				else {
+					warn "Unable to read file $_\n";
+				}
 			}
-			#Only add it to the list if it is music like.
-			push(@rawlist, $workingfile) if($_ =~ m/\.(wav|flac|m4a|wma|mp3|mp4|aac|ogg)+$/i);
-		}, $sdir;
+			#Add the directories
+			@directories = map{ $curDir . "/" . $_} @directories;
+			push(@sdirs, @directories);
+		}
+		else {
+			warn "Unable to open directory $curDir\n" unless $curDir =~ /\.skip$/i;
+		}
 	}
+	#File::Find allows this to happen, it will go through each file including the files . and .. for a given directory.
+	#foreach my $sdir(@sdirs) {
+	#	find sub {
+	#		my $workingfile = getcwd() . "/" . $_;
+	#		if ($workingfile =~ /\.skip/i) {
+	#			print "Skipping $workingfile\n";
+	#			return;
+	#		}
+	#		#Only add it to the list if it is music like.
+	#		push(@rawlist, $workingfile) if($_ =~ m/\.(wav|flac|m4a|wma|mp3|mp4|aac|ogg)+$/i);
+	#	}, $sdir;
+	#}
 	&id3();  #Next step is to get all the ID3 tags.
 }
 #Extracts ID3 tags from files in @rawlist, adding ID3 tags to %tags.
