@@ -12,7 +12,7 @@
 
 #ToDo:	Add Symlinks
 #		Add Genre
-#		File::Find walking of mounted dirs?
+#		Add option to assume ID3 tags are all perfect
 
 use strict;
 use warnings;
@@ -37,7 +37,7 @@ my $error_log_path = getcwd() . "/error.log";
 my $saved_index_path = getcwd() . "/index.pl";
 my $artist_size = 0;
 my $verbose = 0;
-my $operating_system = $^O;
+my $linux = ($^O =~ m/(linux|darwin)/i) ? '1' : '0';
 my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
 my @weekDays = qw(Sun Mon Tue Wed Thu Fri Sat Sun);
 my ($second, $minute, $hour, $dayOfMonth, $month, $yearOffset, $dayOfWeek, $dayOfYear, $daylightSavings) = localtime();
@@ -74,11 +74,11 @@ sub menu {
 	print "8) Quit!\n";
 	print "Choice\> ";
 
-	my $choice = <STDIN>; chomp($choice);
+	my $choice = chomp(<STDIN>);
 	while($choice !~ m/[1-8]/)
 	{
 		print "Choice> ";
-		$choice = <STDIN>; chomp $choice;
+		$choice = chomp(<STDIN>);
 	}
 	&index() if $choice eq "1";
 	&preprint if $choice eq "2";
@@ -125,7 +125,7 @@ sub index {
 	print "Please enter the full path of the source directory to index [enter q when finished]";
 	while($choice ne "q") {
 		print "> ";
-		$choice = <STDIN>; chomp($choice);
+		$choice = chomp(<STDIN>);
 		push(@sdirs, $choice) unless $choice eq "q";
 	}
 	@rawlist =();
@@ -162,23 +162,11 @@ sub index {
 				warn "Unable to open directory $curDir\n";
 			}
 			
-		}
+		} 
 		else {
 			warn "Unable to open directory $curDir\n" unless $curDir =~ /\.skip$/i;
 		}
 	}
-	#File::Find allows this to happen, it will go through each file including the files . and .. for a given directory.
-	#foreach my $sdir(@sdirs) {
-	#	find sub {
-	#		my $workingfile = getcwd() . "/" . $_;
-	#		if ($workingfile =~ /\.skip/i) {
-	#			print "Skipping $workingfile\n";
-	#			return;
-	#		}
-	#		#Only add it to the list if it is music like.
-	#		push(@rawlist, $workingfile) if($_ =~ m/\.(wav|flac|m4a|wma|mp3|mp4|aac|ogg)+$/i);
-	#	}, $sdir;
-	#}
 	&id3();  #Next step is to get all the ID3 tags.
 }
 #Extracts ID3 tags from files in @rawlist, adding ID3 tags to %tags.
@@ -247,9 +235,9 @@ sub make_artists {
 				&printerror("Error with tags in file $filepath\n\tError with filetype\n");
 				$no_id3_tags++;
 				if($verbose) {
-					print color 'Bold Red' if $operating_system =~ m/(linux|darwin)/i;
+					print color 'Bold Red' if $linux;
 					print "[Skipping] Error with tags in file: $filepath\n";
-					print color 'reset' if $operating_system =~ m/(linux|darwin)/i;
+					print color 'reset' if $linux;
 				}
 				next;
 			}
@@ -260,9 +248,9 @@ sub make_artists {
 				&printerror("\tError with Title\n") if $title eq "";
 				$no_id3_tags++;
 				if($verbose) {
-					print color 'Bold Red' if $operating_system =~ m/(linux|darwin)/i;
+					print color 'Bold Red' if $linux;
 					print "[Skipping] Error with tags in file: $filepath\n";
-					print color 'reset' if $operating_system =~ m/(linux|darwin)/i;
+					print color 'reset' if $linux;
 				}
 				next;
 			}
@@ -309,9 +297,9 @@ sub make_artists {
 		else {
 			$no_id3_tags++;
 			if($verbose) {
-				print color 'Bold Red' if $operating_system =~ m/(linux|darwin)/i;
+				print color 'Bold Red' if $linux;
 				print "[Skipping] Error with tags in file: $filepath\n";
-				print color 'reset' if $operating_system =~ m/(linux|darwin)/i;
+				print color 'reset' if $linux;
 			}
 			&printerror("Error with tags in file $filepath\n");
 			&printerror("\tError with Artist\n") if !defined($artist);
@@ -323,9 +311,9 @@ sub make_artists {
 	#%tags is now useless and just taking up space, empty it.
 	%tags = ();
 	print "\nTotal files checked: " . scalar(@rawlist) . "\n";
-	print color 'Bold Red' if $operating_system =~ m/(linux|darwin)/i;
+	print color 'Bold Red' if $linux;
 	print "Files with Bad/No ID3 Tags: " . $no_id3_tags . "\n";
-	print color 'reset' if $operating_system =~ m/(linux|darwin)/i;
+	print color 'reset' if $linux;
 	print "Files dropped because a better quality version was found: " . $files_with_lower_bitrate . "\n";
 	print "Duplicate files not counted: " . $dupes . "\n";
 	#print "Total Size is = $artist_size MB\n";
@@ -434,7 +422,7 @@ sub doors {
 #Build Menu
 sub prebuild {
 	print "Enter directory to move/copy indexed files to [q to quit]> ";
-	my $dir = <STDIN>; chomp($dir);
+	my $dir = chomp(<STDIN>);
 	#Remove \ or / at the end because that breaks stuff.
 	$dir =~ s/[\\|\/]$//;
 	&build($dir) unless $dir eq "q";
@@ -455,12 +443,9 @@ sub build {
 	print "Would you like to copy or move your source files?\n";
 	print "1) Copy\n";
 	print "2) Move\n";
-	print "Choice: ";
-	
-	$choice = <STDIN>; chomp($choice);
 	while($choice !~ m/[1-2]/) {
 		print "Choice: ";
-		$choice = <STDIN>; chomp $choice;
+		$choice = chomp(<STDIN>);
 	}
 	if($choice == 1) {
 		$moveFile = 0;
@@ -477,10 +462,10 @@ sub build {
 	print "3) Do not overwrite existing files, only add\n";
 	print "Choice: ";
 	
-	$choice = <STDIN>; chomp($choice);
+	$choice = chomp(<STDIN>);
 	while($choice !~ m/[1-3]/) {
 		print "Choice: ";
-		$choice = <STDIN>; chomp $choice;
+		$choice = chomp(<STDIN>);
 	}
 	# $artistName is the artist
 	# $albumName is the album
@@ -501,7 +486,7 @@ sub build {
 				my $new_file_bitrate = $artists{$artistName}{$albumName}{$song}{"bitrate"};
 				my $titleFormat;
 				if(defined($trackno)) {
-					$titleFormat = $trackno . " - " . $trackTitle . ".$file_type";
+					$titleFormat = $trackno . " - " . $trackTitle . "." . lc($file_type);
 				}
 				else {
 					$titleFormat = $trackTitle. "." . lc($file_type);
@@ -509,7 +494,7 @@ sub build {
 				my $musicFilePath = "$base/$artistDirectory/$albumDirectory/$titleFormat";
 								
 				if(-e $musicFilePath) {
-					if($choice == 1) {
+					if($choice == 1) {  #Overwrite all
 						if($moveFile == 0) {
 							if($verbose){
 								print "Copying $sourceFileLocation --> $musicFilePath\n";
@@ -523,7 +508,7 @@ sub build {
 							move($sourceFileLocation, "$musicFilePath") or warn "*ERROR could not move file located at $sourceFileLocation\n" && &printerror("Error moving $sourceFileLocation -> $musicFilePath\n");
 						}
 					}
-					if($choice == 2){
+					if($choice == 2){ #Overwrite if source is higher br
 						my $tag = $exifTool->ImageInfo($musicFilePath, @keep) or warn "*Error getting ID3 tags from $musicFilePath\n" && &printerror("BAD ID3 Tags $musicFilePath\n");
 						my $AvgBitrate = &num($tag->{"AvgBitrate"});
 						my $AudioBitrate = &num($tag->{"AudioBitrate"});
@@ -538,9 +523,9 @@ sub build {
 						if(defined($bitrate) && $new_file_bitrate){
 							if($new_file_bitrate > $bitrate){
 								if($verbose){
-									print color 'Bold Green' if $operating_system =~ m/(linux|darwin)/i;
+									print color 'Bold Green' if $linux;
 									print "New file bitrate of " . $new_file_bitrate . " is > than " . $bitrate . " Replacing\n";
-									print color 'reset' if $operating_system =~ m/(linux|darwin)/i;
+									print color 'reset' if $linux;
 								}
 								if($moveFile == 0) {
 									if($verbose){
@@ -611,9 +596,9 @@ sub build {
 		}
 	}
 	
-	print color 'Bold Green' if $operating_system =~ m/(linux|darwin)/i;
+	print color 'Bold Green' if $linux;
 	print "\nDone creating and populating directories!\n";
-	print color 'reset' if $operating_system =~ m/(linux|darwin)/i;
+	print color 'reset' if $linux;
 }
 
 ##If there is a left over key with no values it removes it.
@@ -658,14 +643,14 @@ sub remove {
 #Print Menu
 sub preprint{
 	print "You may enter any text to match.  To search for bitrate use a < or > followed by the bitrate (ie > 128).\n";
-	print "Select \> ";
-	my $match = <STDIN>; chomp($match);
+	print "Select: ";
+	my $match = chomp(<STDIN>);
 	#if the match has a < or > we must be doing a range search
 	if($match =~ m/[\<\>]/) {
 		my $schoice = "";
 		while($schoice !~ m/[y|n|q]/) {
 			print "Include file path as well? [y/n/q to quit]> ";
-			$schoice = <STDIN>; chomp($schoice);
+			$schoice = chomp(<STDIN>);
 		}
 		my $operator = $match;
 		$operator =~ s/[^\<\>]*//g;
@@ -679,7 +664,7 @@ sub preprint{
 		my $schoice = "";
 		while($schoice !~ m/[y|n|q]/) {
 			print "Include file path as well? [y/n/q to quit]> ";
-			$schoice = <STDIN>; chomp($schoice);
+			$schoice = chomp(<STDIN>);
 		}
 		#artistaction is called with action [p|r], string to match, [<|>], target_kbs
 		#in this case no range search so the last two should be false.
@@ -693,7 +678,7 @@ sub preremove {
 	print "You may enter an Artist, Album, Song, File Type, Bitrate (ie < 192 or > 128), or leave blank for all.\n";
 	print "Select [q to quit]\> ";
 	#Must include file paths because thats how I ultimately remove from %artist index.
-	my $match = <STDIN>; chomp($match);
+	my $match = chomp(<STDIN>);
 	my $operator = $match;
 	$operator =~ s/[^\<\>]*//g;
 	my $goal = $match;
@@ -708,7 +693,7 @@ sub artistaction {
 	my $action = &spaces(shift);
 	#$match is for greping
 	my $match = shift;
-	#$locatin is true to include location
+	#$location is true to include location
 	my $location = shift;
 	#$operator for doing  > or < searches of bitrate
 	my $operator = &spaces(shift);
@@ -738,8 +723,8 @@ sub artistaction {
 				print $i . ".) $small[$i]\n";
 			}
 			#Allow them to NOT remove entries from the index.
-			print "Type in numbers seprated by a space to keep or press enter if selection is what you want> ";
-			my $choice = <STDIN>; chomp($choice);
+			print "Type in numbers seperated by a space to keep or press enter if selection is what you want> ";
+			my $choice = chomp(<STDIN>);
 			my @selection = split(/\s+/, $choice);
 			foreach (@selection) {
 				#They chose to keep stuff so remove it from the @small
@@ -758,7 +743,7 @@ sub artistaction {
 			$choice = "";
 			while ($choice !~ m/[y|n]/) {
 				print "Proceed with removal from index? [y/n]> ";
-				$choice = <STDIN>; chomp($choice);
+				$choice = chomp(<STDIN>);
 			}
 			if($choice eq "y") {
 				%path_of_smalls = ();
@@ -779,7 +764,7 @@ sub artistaction {
 				print $i . ".) $small[$i]\n";
 			}
 			print "Type in numbers seprated by a space to keep or press enter if selection is what you want> ";
-			my $choice = <STDIN>; chomp($choice);
+			my $choice = chomp(<STDIN>);
 			my @selection = split(/\s+/, $choice);
 			foreach (@selection) {
 				delete $small[$_];
@@ -795,7 +780,7 @@ sub artistaction {
 			$choice = "";
 			while ($choice !~ m/[y|n]/) {
 				print "Proceed with removal from index? [y/n]> ";
-				$choice = <STDIN>; chomp($choice);
+				$choice = chomp(<STDIN>);
 			}
 			if($choice eq "y") {
 				%path_of_smalls = ();
@@ -863,7 +848,7 @@ sub print {
 sub presql {
 
 	print "Enter the name of the SQL script: ";
-	my $file = <STDIN>; chomp($file);
+	my $file = chomp(<STDIN>);
 	&sql($file) unless $file eq "q";
 }
 #Build sql statement.
@@ -945,7 +930,7 @@ sub sql {
 	}
 	
 	close (MYFILE); 
-	print color 'Bold Green' if $operating_system =~ m/(linux|darwin)/i;
+	print color 'Bold Green' if $linux;
 	print "\nDone creating SQL Script!\n";
-	print color 'reset' if $operating_system =~ m/(linux|darwin)/i;
+	print color 'reset' if $linux;
 }
