@@ -74,11 +74,11 @@ sub menu {
 	print "8) Quit!\n";
 	print "Choice\> ";
 
-	my $choice = chomp(<STDIN>);
+	chomp(my $choice = <STDIN>);
 	while($choice !~ m/[1-8]/)
 	{
 		print "Choice> ";
-		$choice = chomp(<STDIN>);
+		chomp($choice = <STDIN>);
 	}
 	&index() if $choice eq "1";
 	&preprint if $choice eq "2";
@@ -125,7 +125,7 @@ sub index {
 	print "Please enter the full path of the source directory to index [enter q when finished]";
 	while($choice ne "q") {
 		print "> ";
-		$choice = chomp(<STDIN>);
+		chomp($choice = <STDIN>);
 		push(@sdirs, $choice) unless $choice eq "q";
 	}
 	@rawlist =();
@@ -422,7 +422,7 @@ sub doors {
 #Build Menu
 sub prebuild {
 	print "Enter directory to move/copy indexed files to [q to quit]> ";
-	my $dir = chomp(<STDIN>);
+	chomp(my $dir = <STDIN>);
 	#Remove \ or / at the end because that breaks stuff.
 	$dir =~ s/[\\|\/]$//;
 	&build($dir) unless $dir eq "q";
@@ -433,39 +433,41 @@ sub build {
 	#sanitized gets rid of illegal characters
 	my $base = &sanitize(shift, 1);
 	print "Files will be located in $base\n";
-	my $moveFile;
-	my $choice;
-	$choice = 0;
-	$moveFile = 0;
+	my $moveFile = 0;
+	my $choice = 0;
 
 	#Add Symlinks
-	print "Moving files to $base\n";
+	print "Destinaton: $base\n";
 	print "Would you like to copy or move your source files?\n";
 	print "1) Copy\n";
 	print "2) Move\n";
+	#print "3) Symlink (Unix ONLY)\n";
 	while($choice !~ m/[1-2]/) {
 		print "Choice: ";
-		$choice = chomp(<STDIN>);
+		chomp($choice = <STDIN>);
 	}
 	if($choice == 1) {
 		$moveFile = 0;
 	}
-	if($choice == 2) {
+	elsif($choice == 2) {
 		$moveFile = 1;
+	}
+	elsif($choice == 3) {
+
 	}
 
 	$choice = 0;
-	print "\n\nMoving files to $base\n";
-	print "Please make one last decision and I won't bother you anymore, please pick one.\n";
+	print "\n\nDestination: $base\n";
+	print "How do you want to handle any existing files?\n";
 	print "1) Overwrite existing files, if any, assume new file is better\n";
 	print "2) Overwrite existing file ONLY if source file is a higher bitrate\n";
 	print "3) Do not overwrite existing files, only add\n";
 	print "Choice: ";
 	
-	$choice = chomp(<STDIN>);
+	chomp($choice = <STDIN>);
 	while($choice !~ m/[1-3]/) {
 		print "Choice: ";
-		$choice = chomp(<STDIN>);
+		chomp($choice = <STDIN>);
 	}
 	# $artistName is the artist
 	# $albumName is the album
@@ -577,7 +579,7 @@ sub build {
 							}
 						}
 					}
-				}
+				}#End file exists
 				else {
 					if($moveFile == 0) {
 						if($verbose){
@@ -644,13 +646,13 @@ sub remove {
 sub preprint{
 	print "You may enter any text to match.  To search for bitrate use a < or > followed by the bitrate (ie > 128).\n";
 	print "Select: ";
-	my $match = chomp(<STDIN>);
+	chomp(my $match = <STDIN>);
 	#if the match has a < or > we must be doing a range search
 	if($match =~ m/[\<\>]/) {
 		my $schoice = "";
 		while($schoice !~ m/[y|n|q]/) {
 			print "Include file path as well? [y/n/q to quit]> ";
-			$schoice = chomp(<STDIN>);
+			chomp($schoice = <STDIN>);
 		}
 		my $operator = $match;
 		$operator =~ s/[^\<\>]*//g;
@@ -664,7 +666,7 @@ sub preprint{
 		my $schoice = "";
 		while($schoice !~ m/[y|n|q]/) {
 			print "Include file path as well? [y/n/q to quit]> ";
-			$schoice = chomp(<STDIN>);
+			chomp($schoice = <STDIN>);
 		}
 		#artistaction is called with action [p|r], string to match, [<|>], target_kbs
 		#in this case no range search so the last two should be false.
@@ -678,7 +680,7 @@ sub preremove {
 	print "You may enter an Artist, Album, Song, File Type, Bitrate (ie < 192 or > 128), or leave blank for all.\n";
 	print "Select [q to quit]\> ";
 	#Must include file paths because thats how I ultimately remove from %artist index.
-	my $match = chomp(<STDIN>);
+	chomp(my $match = <STDIN>);
 	my $operator = $match;
 	$operator =~ s/[^\<\>]*//g;
 	my $goal = $match;
@@ -724,7 +726,7 @@ sub artistaction {
 			}
 			#Allow them to NOT remove entries from the index.
 			print "Type in numbers seperated by a space to keep or press enter if selection is what you want> ";
-			my $choice = chomp(<STDIN>);
+			chomp(my $choice = <STDIN>);
 			my @selection = split(/\s+/, $choice);
 			foreach (@selection) {
 				#They chose to keep stuff so remove it from the @small
@@ -743,7 +745,7 @@ sub artistaction {
 			$choice = "";
 			while ($choice !~ m/[y|n]/) {
 				print "Proceed with removal from index? [y/n]> ";
-				$choice = chomp(<STDIN>);
+				chomp($choice = <STDIN>);
 			}
 			if($choice eq "y") {
 				%path_of_smalls = ();
@@ -764,7 +766,7 @@ sub artistaction {
 				print $i . ".) $small[$i]\n";
 			}
 			print "Type in numbers seprated by a space to keep or press enter if selection is what you want> ";
-			my $choice = chomp(<STDIN>);
+			chomp(my $choice = <STDIN>);
 			my @selection = split(/\s+/, $choice);
 			foreach (@selection) {
 				delete $small[$_];
@@ -780,7 +782,7 @@ sub artistaction {
 			$choice = "";
 			while ($choice !~ m/[y|n]/) {
 				print "Proceed with removal from index? [y/n]> ";
-				$choice = chomp(<STDIN>);
+				chomp($choice = <STDIN>);
 			}
 			if($choice eq "y") {
 				%path_of_smalls = ();
@@ -848,7 +850,7 @@ sub print {
 sub presql {
 
 	print "Enter the name of the SQL script: ";
-	my $file = chomp(<STDIN>);
+	chomp(my $file = <STDIN>);
 	&sql($file) unless $file eq "q";
 }
 #Build sql statement.
