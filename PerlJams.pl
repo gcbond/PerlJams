@@ -147,7 +147,7 @@ sub index {
 				foreach (@files) {
 					#If we can read the file add it to the list if it is music like
 					if(-r) {
-						my $workingfile = getcwd() . "" . $_;
+						my $workingfile = getcwd() . "/" . $_;
 						push(@rawlist, $workingfile) if($_ =~ m/\.(wav|flac|m4a|wma|mp3|mp4|aac|ogg)+$/i);
 					}
 					else {
