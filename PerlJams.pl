@@ -10,7 +10,7 @@
 # The files will be moved/copied from the old source to the new directory.
 # Check error.log for details on why files were not indexed.
 
-#ToDo:	Add Symlinks
+#ToDo:
 #		Add Genre
 #		Add option to assume ID3 tags are all perfect
 
@@ -436,13 +436,12 @@ sub build {
 	my $moveFile = 0;
 	my $choice = 0;
 
-	#Add Symlinks
 	print "Destinaton: $base\n";
 	print "Would you like to copy or move your source files?\n";
 	print "1) Copy\n";
 	print "2) Move\n";
-	#print "3) Symlink (Unix ONLY)\n";
-	while($choice !~ m/[1-2]/) {
+	print "3) Symlink (Unix ONLY)\n";
+	while($choice !~ m/[1-3]/) {
 		print "Choice: ";
 		chomp($choice = <STDIN>);
 	}
@@ -453,7 +452,7 @@ sub build {
 		$moveFile = 1;
 	}
 	elsif($choice == 3) {
-
+		$moveFile = -1;
 	}
 
 	$choice = 0;
@@ -498,16 +497,16 @@ sub build {
 				if(-e $musicFilePath) {
 					if($choice == 1) {  #Overwrite all
 						if($moveFile == 0) {
-							if($verbose){
-								print "Copying $sourceFileLocation --> $musicFilePath\n";
-							}		
+							print "Copying $sourceFileLocation --> $musicFilePath\n" if $verbose;
 							copy($sourceFileLocation, "$musicFilePath") or warn "*ERROR could not copy file located at $sourceFileLocation\n" && &printerror("Error copying $sourceFileLocation -> $musicFilePath\n");
 						}
-						else {
-							if($verbose){
-								print "Moving $sourceFileLocation --> $musicFilePath\n";
-							}
+						elsif($moveFile == 1) {
+							print "Moving $sourceFileLocation --> $musicFilePath\n" if $verbose;
 							move($sourceFileLocation, "$musicFilePath") or warn "*ERROR could not move file located at $sourceFileLocation\n" && &printerror("Error moving $sourceFileLocation -> $musicFilePath\n");
+						}
+						elsif($moveFile == -1) {
+							print "Symlinking $sourceFileLocation --> $musicFilePath\n" if $verbose;
+							symlink($sourceFileLocation, $musicFilePath) or warn "*ERROR could not symlink file located at $sourceFileLocation\n" && &printerror("Error symlinking $sourceFileLocation -> $musicFilePath\n");
 						}
 					}
 					if($choice == 2){ #Overwrite if source is higher br
@@ -530,16 +529,16 @@ sub build {
 									print color 'reset' if $linux;
 								}
 								if($moveFile == 0) {
-									if($verbose){
-										print "Copying $sourceFileLocation --> $musicFilePath\n";
-									}
+									print "Copying $sourceFileLocation --> $musicFilePath\n" if $verbose;
 									copy($sourceFileLocation, "$musicFilePath") or warn "*ERROR could not copy file located at $sourceFileLocation\n" && &printerror("Error copying $sourceFileLocation -> $musicFilePath\n");
 								}
-								else {
-									if($verbose){
-										print "Moving $sourceFileLocation --> $musicFilePath\n";
-									}
+								elsif($moveFile == 1) {
+									print "Moving $sourceFileLocation --> $musicFilePath\n" if $verbose;
 									move($sourceFileLocation, "$musicFilePath") or warn "*ERROR could not move file located at $sourceFileLocation\n" && &printerror("Error moving $sourceFileLocation -> $musicFilePath\n");
+								}
+								elsif($moveFile == -1) {
+									print "Symlinking $sourceFileLocation --> $musicFilePath\n" if $verbose;
+									symlink($sourceFileLocation, $musicFilePath) or warn "*ERROR could not symlink file located at $sourceFileLocation\n" && &printerror("Error symlinking $sourceFileLocation -> $musicFilePath\n");
 								}	
 							}
 							else {
@@ -558,16 +557,16 @@ sub build {
 									print "New file size of "  . $new_filesize . " is > than " . $filesize . " Replacing\n";
 								}
 								if($moveFile == 0) {
-									if($verbose){
-										print "Copying $sourceFileLocation --> $musicFilePath\n";
-									}
+									print "Copying $sourceFileLocation --> $musicFilePath\n" if $verbose;
 									copy($sourceFileLocation, "$musicFilePath") or warn "*ERROR could not copy file located at $sourceFileLocation\n" && &printerror("Error copying $sourceFileLocation -> $musicFilePath\n");
 								}
-								else {
-									if($verbose){
-										print "Moving $sourceFileLocation --> $musicFilePath\n";
-									}
+								elsif($moveFile == 1) {
+									print "Moving $sourceFileLocation --> $musicFilePath\n" if $verbose;
 									move($sourceFileLocation, "$musicFilePath") or warn "*ERROR could not move file located at $sourceFileLocation\n" && &printerror("Error moving $sourceFileLocation -> $musicFilePath\n");
+								}
+								elsif($moveFile == -1) {
+									print "Symlinking $sourceFileLocation --> $musicFilePath\n" if $verbose;
+									symlink($sourceFileLocation, $musicFilePath) or warn "*ERROR could not symlink file located at $sourceFileLocation\n" && &printerror("Error symlinking $sourceFileLocation -> $musicFilePath\n");
 								}
 							}
 							else {
@@ -582,18 +581,18 @@ sub build {
 				}#End file exists
 				else {
 					if($moveFile == 0) {
-						if($verbose){
-							print "Copying $sourceFileLocation --> $musicFilePath\n";
-						}
+						print "Copying $sourceFileLocation --> $musicFilePath\n" if $verbose;
 						copy($sourceFileLocation, "$musicFilePath") or warn "*ERROR could not copy file located at $sourceFileLocation\n" && &printerror("Error copying $sourceFileLocation -> $musicFilePath\n");
 					}
-					else {
-						if($verbose){
-							print "Moving $sourceFileLocation --> $musicFilePath\n";
-						}
+					elsif($moveFile == 1) {
+						print "Moving $sourceFileLocation --> $musicFilePath\n" if $verbose;
 						move($sourceFileLocation, "$musicFilePath") or warn "*ERROR could not move file located at $sourceFileLocation\n" && &printerror("Error moving $sourceFileLocation -> $musicFilePath\n");
 					}
-				}
+					elsif($moveFile == -1) {
+						print "Symlinking $sourceFileLocation --> $musicFilePath\n" if $verbose;
+						symlink($sourceFileLocation, $musicFilePath) or warn "*ERROR could not symlink file located at $sourceFileLocation\n" && &printerror("Error symlinking $sourceFileLocation -> $musicFilePath\n");
+					}
+				}#End file does not exist
 			}
 		}
 	}
